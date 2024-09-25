@@ -50,22 +50,44 @@ sys_getparentname(void)
     uint np, nc;
     struct proc *curproc = myproc();
 
-    if (argstr(0, &pbuf) < 0     ||
-        argstr(1, &cbuf) < 0     ||
-        argint(2, (int*)&np) < 0 ||
-        argint(3, (int*)&nc) < 0)
+    // fetch arguments from stack
+    // argptr checks the buf lies in user address space
+    if (argint(2, (int*)&np) < 0 ||
+        argint(3, (int*)&nc) < 0 ||
+        argptr(0, &pbuf, np) < 0 ||
+        argptr(1, &cbuf, nc) < 0)
       return -1;
 
+    // check for null pointers
     if (pbuf == (char*)0 || cbuf == (char*)0)
       return -1;
 
-    uint c_sz = NELEM(curproc->name);
-    uint p_sz = NELEM(curproc->parent->name);
-    if (nc < c_sz || np < p_sz)
+    // check for empty buffer lengths
+    if (np <= 0 || nc <= 0)
       return -1;
 
-    safestrcpy(cbuf, curproc->name, c_sz);
-    safestrcpy(pbuf, curproc->parent->name, p_sz);
+    // 1. if pbuf < len of parent proc name
+    // copy as many chars from the parent proc name as pbuf allows
+    // else, copy as much as the proc name buffer allows
+    uint p_sz = NELEM(curproc->parent->name);
+    if (np < p_sz) {
+        safestrcpy(pbuf, curproc->parent->name, np);
+    }
+    else {
+        safestrcpy(pbuf, curproc->parent->name, p_sz);
+    }
+
+    // 2. if cbuf < len of proc name
+    // copy as many chars from the proc name as cbuf allows
+    // else, copy as much as the proc name buffer allows
+    uint c_sz = NELEM(curproc->name);
+    if (nc < c_sz) {
+        safestrcpy(cbuf, curproc->name, nc);
+    }
+    else {
+        safestrcpy(cbuf, curproc->name, c_sz);
+    }
+
     return 0;
 }
 
